@@ -25,6 +25,7 @@ namespace RecipeBrowser
         const int IconicPressurePlateID = 852;
         public Dictionary<int, List<Recipe>> Recipes { get; set; } = new Dictionary<int, List<Recipe>>();
         public Dictionary<int, List<KeyValuePair<string, float>>> NPCLootsTable { get; set; } = new Dictionary<int, List<KeyValuePair<string, float>>>();
+        public Dictionary<int, string> ItemDropConditions { get; set; } = new Dictionary<int, string>();
         public RecipeBrowser(Main game) : base(game)
         {
             Order = 0;
@@ -36,7 +37,6 @@ namespace RecipeBrowser
             BuildMapAtlas.Initialize();
 
             ServerApi.Hooks.GamePostInitialize.Register(this, OnGamePostInit);
-            
 
             Commands.ChatCommands.Add(new Command("recipebrowser.browse", RecBrowser, "recipe", "rec")
             {
@@ -50,6 +50,7 @@ namespace RecipeBrowser
                 HelpText = "Browse an item's drop source and drop rate",
             });
         }
+
         private void OnGamePostInit(EventArgs args)
         {
             foreach (Recipe recipe in Main.recipe)
@@ -62,7 +63,7 @@ namespace RecipeBrowser
 
             for (int i = -65; i < NPCID.Count; i++)
             {
-                List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForNPCID(i);
+                List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForNPCID(i); //also include global items, we will deal with this later
 
                 List<DropRateInfo> drops = new List<DropRateInfo>();
                 DropRateInfoChainFeed ratesInfo = new DropRateInfoChainFeed(1f);
@@ -74,6 +75,26 @@ namespace RecipeBrowser
                     if (!NPCLootsTable.ContainsKey(dropRateInfo.itemId))
                         NPCLootsTable.Add(dropRateInfo.itemId, new List<KeyValuePair<string, float>>());
                     NPCLootsTable[dropRateInfo.itemId].Add(new KeyValuePair<string, float>(Lang.GetNPCNameValue(i), dropRateInfo.dropRate));
+                }
+            }
+
+            /*
+            we are dealing with global items, global items always have the same drop source i.e Jungle Key will always be dropped by
+            hardmode jungle enemies so that we just need to get the first condition instead of the whole list which will take a lot of memomy.
+            */
+            foreach (IItemDropRule itemDropRule in Main.ItemDropsDB._globalEntries)
+            {
+                List<DropRateInfo> drops = new List<DropRateInfo>();
+                DropRateInfoChainFeed ratesInfo = new DropRateInfoChainFeed(1f);
+
+                itemDropRule.ReportDroprates(drops, ratesInfo);
+
+                foreach (DropRateInfo dropRateInfo in drops)
+                {
+                    if (!ItemDropConditions.ContainsKey(dropRateInfo.itemId))
+                        ItemDropConditions.Add(dropRateInfo.itemId, dropRateInfo.conditions
+                            .Select(i => i.GetConditionDescription())
+                            .First());
                 }
             }
         }
@@ -112,7 +133,7 @@ namespace RecipeBrowser
 
             if (Recipes.ContainsKey(targetItem.type))
             {
-                args.Player.SendInfoMessage($"{Recipes[targetItem.type].Count} way(s) to craft [c/ff6600: {targetItem.Name} (ID: {targetItem.netID})]:");
+                args.Player.SendInfoMessage($"Found {Recipes[targetItem.type].Count} way(s) to craft [c/ff6600: {targetItem.Name} (ID: {targetItem.netID})]:");
                 foreach (Recipe recProperty in Recipes[targetItem.type])
                 {
                     List<string> ItemArray = new List<string>();
@@ -122,6 +143,7 @@ namespace RecipeBrowser
                     {
                         if (item.netID != 0)
                         {
+                            //there are some items that allow players to use any type of its ingredient to craft it
                             if ((recProperty.anyWood && item.type == IconicWoodID) ||
                                 (recProperty.anySand && item.type == IconicSandID) ||
                                 (recProperty.anyIronBar && item.type == IconicIronBarID) ||
@@ -214,12 +236,28 @@ namespace RecipeBrowser
                 PaginationTools.SendPage(args.Player, pageNumber, PaginationTools.BuildLinesFromTerms(itemDropSrc),
                     new PaginationTools.Settings
                     {
-                        HeaderFormat = $"[c/ff6600: {targetItem.Name}] Drop Source List ({{0}}/{{1}}): ",
+                        HeaderFormat = $"[c/ff6600: {targetItem.Name}] Drop Source ({{0}}/{{1}}): ",
                         FooterFormat = $"Type {TShock.Config.Settings.CommandSpecifier}ds {targetItem.netID} {{0}} for more.",
+                        HeaderTextColor = Microsoft.Xna.Framework.Color.LimeGreen,
+                        FooterTextColor = Microsoft.Xna.Framework.Color.LimeGreen,
                     });
+
+                //add extra information about condition to drop for global items to make it less confusing for players
+                if (ItemDropConditions.ContainsKey(targetItem.netID))
+                    args.Player.SendInfoMessage($"Condition: [c/66ff33: {ItemDropConditions[targetItem.netID]}]");
             }
             else
-                args.Player.SendErrorMessage($"Could not find any npcs that drop [c/ff6600: {targetItem.Name} (ID: {targetItem.netID})]");
+                args.Player.SendErrorMessage($"Can not find any npcs that drop [c/ff6600: {targetItem.Name} (ID: {targetItem.netID})]");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Recipes.Clear(); NPCLootsTable.Clear(); ItemDropConditions.Clear();
+                ServerApi.Hooks.GamePostInitialize.Deregister(this, OnGamePostInit);
+            }
+            base.Dispose(disposing);
         }
     }
 }
