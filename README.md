@@ -8,3 +8,4 @@
 # Commands
 - /recipe <item name / id> or /rec <item name / id>: Browse an item's recipe.
 - /dropsrc <item name / id> or /ds <item name / id>: Browse an item's drop informations.
+- Both commands require `recipebrowser.browse` permission.
