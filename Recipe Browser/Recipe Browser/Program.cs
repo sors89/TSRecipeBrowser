@@ -16,7 +16,7 @@ namespace RecipeBrowser
 
         public override string Name => "Recipe Browser";
 
-        public override Version Version => new(1, 0, 0);
+        public override Version Version => new(1, 0, 1);
 
         const int IconicWoodID = 9;
         const int IconicSandID = 169;
@@ -79,8 +79,8 @@ namespace RecipeBrowser
             }
 
             /*
-            we are dealing with global items, global items always have the same drop source i.e Jungle Key will always be dropped by
-            hardmode jungle enemies so that we just need to get the first condition instead of the whole list which will take a lot of memomy.
+            we are dealing with global items, global items always have the same drop source e.g Jungle Key will always be dropped by
+            hardmode jungle enemies so that we just need to get the first condition instead of the whole list which would take a lot of memory and slower.
             */
             foreach (IItemDropRule itemDropRule in Main.ItemDropsDB._globalEntries)
             {
@@ -143,7 +143,7 @@ namespace RecipeBrowser
                     {
                         if (item.netID != 0)
                         {
-                            //there are some items that allow players to use any type of its ingredient to craft it
+                            //there are some items that allow players to use any type of its ingredient to craft
                             if ((recProperty.anyWood && item.type == IconicWoodID) ||
                                 (recProperty.anySand && item.type == IconicSandID) ||
                                 (recProperty.anyIronBar && item.type == IconicIronBarID) ||
@@ -242,7 +242,7 @@ namespace RecipeBrowser
                         FooterTextColor = Microsoft.Xna.Framework.Color.LimeGreen,
                     });
 
-                //add extra information about condition to drop for global items to make it less confusing for players
+                //add extra information about condition in order to drop for global items to make it less confusing for players
                 if (ItemDropConditions.ContainsKey(targetItem.netID))
                     args.Player.SendInfoMessage($"Condition: [c/66ff33: {ItemDropConditions[targetItem.netID]}]");
             }
